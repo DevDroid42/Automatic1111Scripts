@@ -78,7 +78,7 @@ class Script(scripts.Script):
                 img = img.convert('RGB').resize(last_img.size)
                 # blend must be preformed on exactly the same res and format
                 img = PIL.Image.blend(img, last_img, alpha)
-                img.show()
+                # img.show()
 
             # this is where the input image is set.
             # Sends a list in case multiple output should be produced from each input
