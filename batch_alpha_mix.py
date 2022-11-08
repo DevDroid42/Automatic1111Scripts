@@ -34,7 +34,7 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
         alpha = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, value=0,
-                          label="alpha")
+                          label="alpha (0 is raw input, 1 feeds exact copy of last output into input)")
         input_dir = gr.Textbox(label="Input file path", lines=1)
         output_dir = gr.Textbox(label="Input file path", lines=1)
         overwrite = gr.Checkbox(False, label="Overwrite existing files")
@@ -52,16 +52,19 @@ class Script(scripts.Script):
         processing.fix_seed(p)
 
         # global images
-        images = [file for file in [os.path.join(input_dir, x) for x in os.listdir(input_dir)] if os.path.isfile(file)]
+        imgs = [file for file in [os.path.join(input_dir, x) for x in os.listdir(input_dir)] if os.path.isfile(file)]
 
         save_normally = output_dir == ''
 
         p.do_not_save_grid = True
         p.do_not_save_samples = not save_normally
 
-        state.job_count = len(images) * p.n_iter
-        for i, image in enumerate(images):
-            state.job = f"{i + 1} out of {len(images)}"
+        # the last output image in the loop to use when interpolating
+        last_img: Image = None
+        # used to update the progress bar at the top
+        state.job_count = len(imgs) * p.n_iter
+        for i, image in enumerate(imgs):
+            state.job = f"{i + 1} out of {len(imgs)}"
             if state.skipped:
                 state.skipped = False
 
@@ -71,15 +74,17 @@ class Script(scripts.Script):
             img = Image.open(image)
 
             # alpha mix code
-            if i > 0:
-                last_img = Image.open(images[i - 1])
+            if last_img:
+                img = img.convert('RGB').resize(last_img.size)
                 # blend must be preformed on exactly the same res and format
                 img = PIL.Image.blend(img, last_img, alpha)
+                img.show()
 
             # this is where the input image is set.
             # Sends a list in case multiple output should be produced from each input
             p.init_images = [img] * p.batch_size
             proc: Processed = process_images(p)
+            last_img = proc.images[0].convert('RGB')
 
             for n, processed_image in enumerate(proc.images):
                 filename = os.path.basename(image)
